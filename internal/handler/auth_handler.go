@@ -21,7 +21,7 @@ func NewAuthHandler(authService service.AuthService, mux *http.ServeMux) {
 		AuthService: authService,
 	}
 
-	mux.HandleFunc("/auth/apple", handler.AppleLogin)
+	mux.HandleFunc("/auth/apple", Logger(handler.AppleLogin))
 }
 
 func (a *authHandler) AppleLogin(w http.ResponseWriter, r *http.Request) {
