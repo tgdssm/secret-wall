@@ -22,5 +22,5 @@ func main() {
 	var authService = service.NewAuthService(userRepo)
 	handler.NewAuthHandler(authService, mux)
 
-	log.Fatal(http.ListenAndServe("192.168.1.76:8080", mux))
+	log.Fatal(http.ListenAndServe("192.168.1.84:8080", mux))
 }

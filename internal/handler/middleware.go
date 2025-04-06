@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"io"
 	"log"
 	"net/http"
 	"secretWall/internal/domain"
@@ -19,7 +20,9 @@ func Authenticator(handlerFunc http.HandlerFunc) http.HandlerFunc {
 
 func Logger(handlerFunc http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("\n %s %s %s %s", r.Method, r.RequestURI, r.Host, r.Body)
+		log.Printf("\n %s %s", r.Method, r.RequestURI)
+		body, _ := io.ReadAll(r.Body)
+		log.Printf("\n %s", body)
 		handlerFunc(w, r)
 	}
 }

@@ -1,11 +1,14 @@
 package service
 
 import (
+	"crypto/rsa"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"github.com/golang-jwt/jwt"
 	"github.com/google/uuid"
 	"io"
+	"math/big"
 	"net/http"
 	"secretWall/internal/domain"
 	"time"
@@ -13,6 +16,19 @@ import (
 
 type AuthService struct {
 	userRepo domain.UserRepo
+}
+
+type ApplePublicKey struct {
+	Kty string `json:"kty"`
+	Kid string `json:"kid"`
+	Use string `json:"use"`
+	Alg string `json:"alg"`
+	N   string `json:"n"`
+	E   string `json:"e"`
+}
+
+type AppleKeysResponse struct {
+	Keys []ApplePublicKey `json:"keys"`
 }
 
 func NewAuthService(userRepo domain.UserRepo) AuthService {
@@ -33,12 +49,43 @@ func (s *AuthService) AuthenticateWithApple(identityToken string) (*domain.User,
 			return nil, err
 		}
 
-		var keys map[string]interface{}
+		var keys AppleKeysResponse
 		err = json.Unmarshal(body, &keys)
 		if err != nil {
 			return nil, err
 		}
-		return nil, nil
+
+		kid, ok := token.Header["kid"].(string)
+		if !ok {
+			return nil, domain.ErrInvalidToken
+		}
+
+		for _, key := range keys.Keys {
+			if key.Kid == kid {
+				nBytes, err := base64.RawURLEncoding.DecodeString(key.N)
+				if err != nil {
+					return nil, err
+				}
+				eBytes, err := base64.RawURLEncoding.DecodeString(key.E)
+				if err != nil {
+					return nil, err
+				}
+
+				e := 0
+				for _, b := range eBytes {
+					e = e<<8 + int(b)
+				}
+
+				publicKey := &rsa.PublicKey{
+					N: new(big.Int).SetBytes(nBytes),
+					E: e,
+				}
+
+				return publicKey, nil
+			}
+		}
+
+		return nil, domain.ErrInvalidToken
 	})
 
 	if err != nil || !token.Valid {
@@ -51,13 +98,6 @@ func (s *AuthService) AuthenticateWithApple(identityToken string) (*domain.User,
 	}
 
 	user, err := s.userRepo.FindByAppleSub(sub)
-	if err != nil && !errors.Is(err, domain.ErrUserNotFound) {
-		return nil, err
-	}
-
-	if err != nil {
-		return nil, err
-	}
 
 	if user == nil {
 		user = &domain.User{
