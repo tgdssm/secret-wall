@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bytes"
 	"io"
 	"log"
 	"net/http"
@@ -21,8 +22,11 @@ func Authenticator(handlerFunc http.HandlerFunc) http.HandlerFunc {
 func Logger(handlerFunc http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("\n %s %s", r.Method, r.RequestURI)
-		body, _ := io.ReadAll(r.Body)
-		log.Printf("\n %s", body)
+		if r.Body != nil {
+			bodyBytes, _ := io.ReadAll(r.Body)
+			log.Printf("\n %s", string(bodyBytes))
+			r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+		}
 		handlerFunc(w, r)
 	}
 }
